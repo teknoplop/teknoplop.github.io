@@ -21,9 +21,12 @@ internal registry keys), and is not reliably scriptable via standard PowerShell.
 [CmdletBinding()]
 param()
 
-$ScoopPath = "$env:USERPROFILE\scoop"
 $DesktopPath = [Environment]::GetFolderPath('Desktop')
-$InstalledAppsDir = Join-Path -Path $ScoopPath -ChildPath 'apps'
+
+# Scoop apps can live in the per-user install (~\scoop) and/or the global
+# install (normally C:\ProgramData\scoop, overridable via $env:SCOOP_GLOBAL).
+$ScoopGlobalPath = if ($env:SCOOP_GLOBAL) { $env:SCOOP_GLOBAL } else { "$env:ProgramData\scoop" }
+$InstalledAppsDirs = @("$env:USERPROFILE\scoop\apps", "$ScoopGlobalPath\apps") | Where-Object { Test-Path $_ -PathType Container }
 
 $ScoopApps = @(
     'vscode',
@@ -36,10 +39,10 @@ $ScoopApps = @(
 
 function CheckScoopAppsDirectoryExists {
     param(
-        [Parameter(Mandatory=$true)][string]$AppsDir
+        [Parameter(Mandatory=$true)][string[]]$AppsDirs
     )
-    if (-not (Test-Path $AppsDir -PathType Container)) {
-        throw "PrerequisiteError: Scoop 'apps' directory not found at '$AppsDir'. Please check the \$ScoopPath variable and ensure Scoop is installed."
+    if ($AppsDirs.Count -eq 0) {
+        throw "PrerequisiteError: No Scoop 'apps' directory found in the user or global Scoop install. Please ensure Scoop is installed."
     }
 }
 
@@ -178,7 +181,9 @@ function New-ScoopAppShortcut {
 
         # The 'shortcuts' property is an array of arrays, e.g., [["bin\\7zFM.exe", "7-Zip File Manager"]]
         $ExecutableSubPath = $ShortcutSource[0]
-        $DesiredShortcutName = $ShortcutSource[1]
+        # Manifests sometimes nest the shortcut name in a Start Menu category, e.g.
+        # "7-Zip\7-Zip File Manager". Desktop shortcuts are flat, so use only the leaf name.
+        $DesiredShortcutName = ($ShortcutSource[1] -split '\\')[-1]
         $ExecutableName = [System.IO.Path]::GetFileName($ExecutableSubPath)
 
         Write-Host "`n--- Processing App: '$AppName' (Shortcut: '$DesiredShortcutName', Executable: '$ExecutableName') ---"
@@ -468,15 +473,22 @@ function Configure-MsiAfterburnerMonitoring {
 Write-Host "Starting Scoop Desktop Shortcut Creator on PowerShell $($PSVersionTable.PSVersion.ToString())..."
 
 try {
-    CheckScoopAppsDirectoryExists -AppsDir $InstalledAppsDir
+    CheckScoopAppsDirectoryExists -AppsDirs $InstalledAppsDirs
 
-    foreach ($AppDirectory in Get-ChildItem $InstalledAppsDir -Directory) {
-        if ($ScoopApps -contains $AppDirectory.Name) {
-            New-ScoopAppShortcut -AppName $AppDirectory.Name -InstalledAppsDir $InstalledAppsDir -DesktopPath $DesktopPath
-        }
+    $ProcessedApps = @{}
+    foreach ($InstalledAppsDir in $InstalledAppsDirs) {
+        foreach ($AppDirectory in Get-ChildItem $InstalledAppsDir -Directory) {
+            if ($ProcessedApps.ContainsKey($AppDirectory.Name)) { continue }
 
-        if ($AppDirectory.Name -eq 'msiafterburner') {
-            Configure-MsiAfterburnerMonitoring -InstalledAppsDir $InstalledAppsDir
+            if ($ScoopApps -contains $AppDirectory.Name) {
+                New-ScoopAppShortcut -AppName $AppDirectory.Name -InstalledAppsDir $InstalledAppsDir -DesktopPath $DesktopPath
+                $ProcessedApps[$AppDirectory.Name] = $true
+            }
+
+            if ($AppDirectory.Name -eq 'msiafterburner') {
+                Configure-MsiAfterburnerMonitoring -InstalledAppsDir $InstalledAppsDir
+                $ProcessedApps[$AppDirectory.Name] = $true
+            }
         }
     }
 

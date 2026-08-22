@@ -6,21 +6,63 @@
 </head>
 <body>
 <code>
+    # Everything in the box below is valid PowerShell - select it all and paste directly into an<br/>
+    # admin PowerShell window, or just run the one-liner it contains (see inside).<br/>
+</code>
+<br/><br/>
+<code id="commands">
+    # Stuck behind Edge's first-run modal? Win+R this to skip it and jump straight to this page:<br/>
+    # "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --no-first-run --no-default-browser-check https://teknoplop.github.io<br/>
+    <br/>
+    # Run everything below in one go (self-elevates via UAC when needed). Left as a comment here<br/>
+    # since Setup.ps1 reads this same block and runs it for you - copy/paste this one line alone:<br/>
+    # iex (irm "https://teknoplop.github.io/Setup.ps1")<br/>
+    <br/>
+    winget install --id Google.Chrome -e --silent<br/>
+    # Fallback if winget isn't available: Invoke-WebRequest https://dl.google.com/chrome/install/latest/chrome_installer.exe -OutFile chrome_installer.exe; .\chrome_installer.exe<br/>
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser<br/>
-    Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression<br/>
-    scoop install git<br/>
+    Invoke-RestMethod -Uri https://get.scoop.sh -OutFile "$env:TEMP\scoop-install.ps1"<br/>
+    & "$env:TEMP\scoop-install.ps1" -RunAsAdmin<br/>
+    scoop install -g git<br/>
     scoop bucket add extras<br/>
     scoop bucket add versions<br/>
     scoop bucket add Sysinternals<br/>
-    scoop install  main/python 7zip bat clink cpu-z cryptomator crystaldiskmark furmark googlechrome gpu-z hwinfo msiafterburner notepadplusplus process-explorer ripgrep ventoy vlc vscode wget<br/>
-    iex (irm "https://raw.githubusercontent.com/teknoplop/teknoplop.github.io/refs/heads/main/Create-ScoopAppShortcuts.ps1")<br/>
+    scoop install -g main/python 7zip aria2 bat claude claude-code clink cpu-z cryptomator crystaldiskmark furmark gh gpu-z hwinfo msiafterburner notepadplusplus process-explorer ripgrep sudo ventoy vlc vscode wget<br/>
+    scoop config aria2-enabled true<br/>
+    clink autorun install -a<br/>
+    iex (irm "https://teknoplop.github.io/Create-ScoopAppShortcuts.ps1")<br/>
+    iex (irm "https://teknoplop.github.io/Update-Bios.ps1")<br/>
+    # Skips itself (no DDG page opened) if the installed BIOS is under 3 months old, so this<br/>
+    # stays safe to run every time Setup.ps1 runs - e.g. just to refresh desktop shortcuts.<br/>
+    <br/>
+    # Why not just use winget for everything, since it's used for Chrome above?<br/>
+    # - Every app in the scoop list also exists in winget, so it's possible.<br/>
+    # - But winget installs one app per command too, so it wouldn't shorten this script.<br/>
+    # - winget is only used pre-Scoop because it's the one thing preinstalled on a clean Windows box.<br/>
+    # - Scoop's only per-line limit is "scoop bucket add" (one bucket per line); app installs<br/>
+    #   already batch onto a single "scoop install" line, so there's nothing to gain by switching.<br/>
 </code>
 <br/><br/>
-TODO:<ul>
-<li>one click</li>
-<li>desktop/taskbar shortcut/icons</li>
-<li>windows settings</li>
-<li>review <a href="https://rohancragg.co.uk/misc/scoop/">Scoop & Co</a></li>
-</ul></body>
+<code>
+    # DONE:<br/>
+    # - one click - everything now runs from a single self-elevating iex (irm ...) line via<br/>
+    #   Setup.ps1, which reads and executes the commands block on this same page<br/>
+    # - desktop shortcuts/icons<br/>
+    # - review Scoop &amp; Co (https://rohancragg.co.uk/misc/scoop/) - adopted sudo and aria2<br/>
+    #<br/>
+    # DOING:<br/>
+    # - windows settings - personalization (theme, wallpaper, taskbar/Start layout, installed apps<br/>
+    #   list) restores automatically via Windows Backup when signed into the same Microsoft account.<br/>
+    #   Still open: Explorer/registry-level tweaks (file extensions, hidden files, taskbar alignment,<br/>
+    #   telemetry, etc)<br/>
+    #     - investigate Chris Titus WinUtil (https://christitus.com/winutil) - single iex one-liner,<br/>
+    #       GUI checklist of tweaks<br/>
+    #     - investigate Sophia Script (https://github.com/farag2/Sophia-Script-for-Windows) -<br/>
+    #       PowerShell module, more granular/scriptable than WinUtil<br/>
+    #<br/>
+    # TODO:<br/>
+    # - taskbar shortcut/icons - no supported PowerShell API since Windows 10 1607; the "pin to<br/>
+    #   taskbar" verb hack is unreliable across Windows versions/locales<br/>
+</code>
+</body>
 </html>
-
